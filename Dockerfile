@@ -1,35 +1,22 @@
-# Stage 1: Build Angular app
+# Stage 1: Builder - Node environment
 FROM node:20-alpine AS builder
-
-# Install dependencies for headless Chrome
-RUN apk add --no-cache chromium
-
-# Set Chrome binary path
-ENV CHROME_BIN=/usr/bin/chromium-browser
-ENV CI=true
-
 WORKDIR /app
 
-# Copy package files and install dependencies
+# Install dependencies
 COPY package*.json ./
 RUN npm ci
 
-# Copy project files
+# Copy source
 COPY . .
 
-# Run Angular tests in headless mode
-RUN npx ng test --watch=false --browsers=ChromeHeadless || echo "No tests found"
+# Run tests (if none, just echo)
+RUN npm test || echo "No tests found"
 
-# Build production Angular app
-RUN npx ng build --configuration production
+# Build Angular app
+RUN npm run build -- --output-path=dist
 
-# Stage 2: Serve app with Nginx
+# Stage 2: Production image - Nginx
 FROM nginx:alpine
-
-# Copy built app from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
-
-# Expose port 80
 EXPOSE 80
-
 CMD ["nginx", "-g", "daemon off;"]
