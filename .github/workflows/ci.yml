@@ -16,7 +16,7 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t angular-test-app .
-        shell: pwsh
+        shell: powershell
 
       - name: Run Angular tests
         run: |
@@ -25,10 +25,12 @@ jobs:
           } catch {
               Write-Output "No tests found"
           }
-        shell: pwsh
+        shell: powershell
 
       - name: Run app (manual test)
         run: |
+          docker stop angular-test -ErrorAction SilentlyContinue
+          docker rm angular-test -ErrorAction SilentlyContinue
           docker run -d -p 4200:80 --name angular-test angular-test-app
           Write-Output "App running at http://localhost:4200"
-        shell: pwsh
+        shell: powershell
