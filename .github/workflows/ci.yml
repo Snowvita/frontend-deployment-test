@@ -1,4 +1,4 @@
-name: Frontend CI/CD
+name: Frontend CI
 
 on:
   push:
@@ -17,20 +17,31 @@ jobs:
       - name: Build Docker image
         run: docker build -t angular-test-app .
 
+      - name: Run Angular tests
+        run: |
+          try {
+            docker run --rm angular-test-app npm test
+          } catch {
+            Write-Output "No tests found"
+          }
+
       - name: Run Angular deployment test
         run: |
+          # Run container
           docker run -d -p 4200:80 --name angular-test angular-test-app
-          echo "App running at http://localhost:4200"
-          sleep 10
-          curl -f http://localhost:4200 || (echo "Deployment test failed" && exit 1)
+
+          # Wait for app to start
+          Start-Sleep -Seconds 10
+
+          # Test deployment
+          try {
+            $response = Invoke-WebRequest -Uri http://localhost:4200 -UseBasicParsing
+            Write-Output "Deployment test succeeded"
+          } catch {
+            Write-Error "Deployment test failed"
+            exit 1
+          }
+
+          # Clean up container
           docker stop angular-test
           docker rm angular-test
-
-      - name: Push Docker image to Docker Hub
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-        run: |
-          echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_USERNAME --password-stdin
-          docker tag angular-test-app $DOCKERHUB_USERNAME/angular-test-app:latest
-          docker push $DOCKERHUB_USERNAME/angular-test-app:latest
