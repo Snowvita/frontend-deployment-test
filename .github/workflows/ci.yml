@@ -15,15 +15,20 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: docker build -t angular-test-app .\
-      - name: Run Angular tests
-        run: | 
-        docker run --rm angular-test-app npm test if (-not $?) { Write-Output "No tests found" }
+        run: docker build -t angular-test-app .
         shell: pwsh
 
-
+      - name: Run Angular tests
+        run: |
+          try {
+              docker run --rm angular-test-app npm test
+          } catch {
+              Write-Output "No tests found"
+          }
+        shell: pwsh
 
       - name: Run app (manual test)
         run: |
           docker run -d -p 4200:80 --name angular-test angular-test-app
-          echo "App running at http://localhost:4200"
+          Write-Output "App running at http://localhost:4200"
+        shell: pwsh
