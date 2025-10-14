@@ -1,4 +1,4 @@
-name: Frontend CI
+name: Frontend CI/CD
 
 on:
   push:
@@ -11,35 +11,39 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      # Step 1: Checkout code
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 2: Build Docker image
       - name: Build Docker image
-        run: docker build -t angular-test-app .
-
-      # Step 3: Run Angular tests in headless mode
-      - name: Run Angular tests
         run: |
-          docker run --rm -v "${{ github.workspace }}:/app" -w /app node:20-alpine sh -c "npm ci && ng test --watch=false --browsers=ChromeHeadless || echo 'No tests found'"
+          docker build -t angular-test-app .
 
-      # Step 4: Run app in detached mode
-      - name: Start Angular app
-        run: docker run -d -p 4200:80 --name angular-test angular-test-app
+      - name: Run Angular tests inside Docker
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/app -w /app node:20-alpine sh -c "npm ci && npm test || echo 'No tests found'"
 
-      # Step 5: Simple deployment test
+      - name: Start Angular app container
+        run: |
+          # Remove existing container if any
+          if [ $(docker ps -aq -f name=angular-test) ]; then
+            docker rm -f angular-test
+          fi
+          # Run container in detached mode
+          docker run -d -p 4200:80 --name angular-test angular-test-app
+
       - name: Deployment test
-        shell: bash
         run: |
-          sleep 10 # give container some time to start
+          # Wait a few seconds for app to start
+          sleep 5
+          # Simple test to check if app is running
           if curl -f http://localhost:4200; then
-            echo "Deployment test passed!"
+            echo "Deployment test passed"
           else
             echo "Deployment test failed"
             exit 1
           fi
 
-      # Step 6: Stop the container after test
       - name: Stop Angular container
-        run: docker stop angular-test
+        run: |
+          docker stop angular-test || true
+          docker rm angular-test || true
