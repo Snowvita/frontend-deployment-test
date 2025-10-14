@@ -11,24 +11,26 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      # Checkout repo
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Build Docker image (tests run inside builder stage)
-      - name: Build Docker image with tests
-        run: docker build --target builder -t angular-test-app .
+      - name: Build Docker image
+        run: docker build -t angular-test-app .
 
-      # Optional: Run final image (simulates deployment)
-      - name: Run app container
-        run: docker run -d -p 4200:80 --name angular-test angular-test-app
-
-      - name: Test app running
+      - name: Run Angular deployment test
         run: |
+          docker run -d -p 4200:80 --name angular-test angular-test-app
           echo "App running at http://localhost:4200"
-          # You can optionally curl the app to check it works
-          curl -f http://localhost:4200 || echo "App not responding"
+          sleep 10
+          curl -f http://localhost:4200 || (echo "Deployment test failed" && exit 1)
+          docker stop angular-test
+          docker rm angular-test
 
-      # Optional: Stop container after test
-      - name: Stop container
-        run: docker stop angular-test
+      - name: Push Docker image to Docker Hub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+        run: |
+          echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_USERNAME --password-stdin
+          docker tag angular-test-app $DOCKERHUB_USERNAME/angular-test-app:latest
+          docker push $DOCKERHUB_USERNAME/angular-test-app:latest
