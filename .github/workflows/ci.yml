@@ -8,33 +8,38 @@ on:
 
 jobs:
   build-test-deploy:
-    runs-on: self-hosted  # Your self-hosted runner
+    runs-on: self-hosted
 
     steps:
-      # 1. Checkout repo
-      - name: Checkout code
+      # Step 1: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Build Docker image (production)
-      - name: Build Angular Docker image
+      # Step 2: Build Docker image
+      - name: Build Docker image
         run: docker build -t angular-test-app .
 
-      # 3. Run Angular tests in Node container
+      # Step 3: Run Angular tests in headless mode
       - name: Run Angular tests
         run: |
-          docker run --rm -v ${{ github.workspace }}:/app -w /app node:20-alpine sh -c "npm ci && npm test || echo 'No tests found'"
+          docker run --rm -v "${{ github.workspace }}:/app" -w /app node:20-alpine sh -c "npm ci && ng test --watch=false --browsers=ChromeHeadless || echo 'No tests found'"
 
-      # 4. Run container to test deployment
-      - name: Run Angular app container
+      # Step 4: Run app in detached mode
+      - name: Start Angular app
+        run: docker run -d -p 4200:80 --name angular-test angular-test-app
+
+      # Step 5: Simple deployment test
+      - name: Deployment test
+        shell: bash
         run: |
-          docker run -d -p 4200:80 --name angular-test angular-test-app
-          sleep 10
-          # Check if app is running
-          if ! curl -f http://localhost:4200; then
+          sleep 10 # give container some time to start
+          if curl -f http://localhost:4200; then
+            echo "Deployment test passed!"
+          else
             echo "Deployment test failed"
-            docker logs angular-test
-            docker stop angular-test
             exit 1
           fi
-          echo "Deployment test passed"
-          docker stop angular-test
+
+      # Step 6: Stop the container after test
+      - name: Stop Angular container
+        run: docker stop angular-test
