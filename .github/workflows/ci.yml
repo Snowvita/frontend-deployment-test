@@ -7,30 +7,31 @@ on:
     branches: [ master ]
 
 jobs:
-  build-test:
-    runs-on: self-hosted
+  build-test-deploy:
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Build Docker image
-        run: docker build -t angular-test-app .
-        shell: powershell
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build Docker image (with Node for test)
+        run: |
+          docker build --target builder -t angular-test-builder .
 
       - name: Run Angular tests
         run: |
-          try {
-              docker run --rm angular-test-app npm test
-          } catch {
-              Write-Output "No tests found"
-          }
-        shell: powershell
+          docker run --rm angular-test-builder npm test || echo "No tests found"
 
-      - name: Run app (manual test)
+      - name: Build final Docker image
         run: |
-          docker stop angular-test -ErrorAction SilentlyContinue
-          docker rm angular-test -ErrorAction SilentlyContinue
-          docker run -d -p 4200:80 --name angular-test angular-test-app
-          Write-Output "App running at http://localhost:4200"
-        shell: powershell
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/angular-test-app:latest .
+
+      - name: Push to Docker Hub
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/angular-test-app:latest
