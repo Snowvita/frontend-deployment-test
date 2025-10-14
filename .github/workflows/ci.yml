@@ -19,6 +19,8 @@ jobs:
 
       - name: Run tests in container
         run: docker run --rm angular-test-app npm test || echo "No tests found"
+        shell: bash
+
 
       - name: Run app (manual test)
         run: |
