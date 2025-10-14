@@ -23,7 +23,13 @@ jobs:
       # 3️⃣ Run unit tests inside Docker
       - name: Run Angular tests
         run: |
-          docker run --rm angular-test-app npm test || echo "No tests found"
+          try {
+            docker run --rm angular-test-app npm test
+          } catch {
+            Write-Output "No tests found"
+          }
+        shell: powershell
+
 
       # 4️⃣ Deployment test simulation
       - name: Simulate deployment test
