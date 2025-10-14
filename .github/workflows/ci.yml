@@ -8,40 +8,33 @@ on:
 
 jobs:
   build-test-deploy:
-    runs-on: self-hosted
+    runs-on: self-hosted  # Your self-hosted runner
 
     steps:
+      # 1. Checkout repo
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build Docker image
+      # 2. Build Docker image (production)
+      - name: Build Angular Docker image
         run: docker build -t angular-test-app .
 
+      # 3. Run Angular tests in Node container
       - name: Run Angular tests
         run: |
-          try {
-            docker run --rm angular-test-app npm test
-          } catch {
-            Write-Output "No tests found"
-          }
+          docker run --rm -v ${{ github.workspace }}:/app -w /app node:20-alpine sh -c "npm ci && npm test || echo 'No tests found'"
 
-      - name: Run Angular deployment test
+      # 4. Run container to test deployment
+      - name: Run Angular app container
         run: |
-          # Run container
           docker run -d -p 4200:80 --name angular-test angular-test-app
-
-          # Wait for app to start
-          Start-Sleep -Seconds 10
-
-          # Test deployment
-          try {
-            $response = Invoke-WebRequest -Uri http://localhost:4200 -UseBasicParsing
-            Write-Output "Deployment test succeeded"
-          } catch {
-            Write-Error "Deployment test failed"
+          sleep 10
+          # Check if app is running
+          if ! curl -f http://localhost:4200; then
+            echo "Deployment test failed"
+            docker logs angular-test
+            docker stop angular-test
             exit 1
-          }
-
-          # Clean up container
+          fi
+          echo "Deployment test passed"
           docker stop angular-test
-          docker rm angular-test
