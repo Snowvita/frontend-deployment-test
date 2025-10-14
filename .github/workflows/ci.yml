@@ -17,15 +17,15 @@ jobs:
       - name: Build Docker image
         run: |
           docker build -t angular-test-app .
-      # 3️⃣ Run Angular tests inside Docker using ChromeHeadless
       - name: Run Angular tests
+        shell: bash
         run: |
-          docker run --rm -v ${{ github.workspace }}:/app -w /app node:20-alpine sh -c "
-          npm ci &&
-          npm install --save-dev puppeteer &&
-          export CHROME_BIN=$(node -p \"require('puppeteer').executablePath()\") &&
-          ng test --watch=false --browsers=ChromeHeadless || echo 'No tests found'
-      # - name: Run Angular tests inside Docker
+          docker run --rm -v "${GITHUB_WORKSPACE}:/app" -w /app node:20-alpine bash -c '
+            npm ci
+            npm install --save-dev puppeteer
+            export CHROME_BIN=$(node -p "require(\"puppeteer\").executablePath()")
+            ng test --watch=false --browsers=ChromeHeadless || echo "No tests found"
+          '
       #   run: |
       #     docker run --rm -v ${{ github.workspace }}:/app -w /app node:20-alpine sh -c "npm ci && npm test || echo 'No tests found'"
 
