@@ -1,57 +1,42 @@
-name: Frontend CI/CD
+name: Deployment Test - Test Server
 
 on:
   push:
     branches: [ master ]
-  pull_request:
-    branches: [ master ]
 
 jobs:
-  build-test-deploy:
-    runs-on: self-hosted
+  deploy-test:
+    name: Deploy to Test Server
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout (optional, for logging context)
         uses: actions/checkout@v4
 
-      - name: Build Docker image
-        run: |
-          docker build -t angular-test-app .
-      - name: Run Angular tests in Docker
-        run: |
-          docker run --rm -v "${PWD}:/app" -w /app node:20-alpine sh -c "
-            npm ci
-            npm install --save-dev puppeteer
-            export CHROME_BIN=\$(node -p 'require(\"puppeteer\").executablePath()')
-            npx ng test --watch=false --browsers=ChromeHeadless || echo 'No tests found'
-          "
-        shell: bash
+      - name: Pull image from Docker Hub
+        run: docker pull snowvita/frontend-angular:latest
 
-      #   run: |
-      #     docker run --rm -v ${{ github.workspace }}:/app -w /app node:20-alpine sh -c "npm ci && npm test || echo 'No tests found'"
-
-      - name: Start Angular app container
+      - name: Run container as test server
         run: |
-          # Remove existing container if any
-          if [ $(docker ps -aq -f name=angular-test) ]; then
-            docker rm -f angular-test
-          fi
-          # Run container in detached mode
-          docker run -d -p 4200:80 --name angular-test angular-test-app
+          echo "🚀 Starting test server container..."
+          docker run -d -p 4200:80 --name angular-test snowvita/frontend-angular:latest
+          echo "⏳ Waiting for container to initialize..."
+          sleep 10
+          docker ps
 
-      - name: Deployment test
+      - name: Verify deployment
         run: |
-          # Wait a few seconds for app to start
-          sleep 5
-          # Simple test to check if app is running
-          if curl -f http://localhost:4200; then
-            echo "Deployment test passed"
+          echo "🔍 Checking if the app is accessible..."
+          if curl -f http://localhost:4200 > /dev/null 2>&1; then
+            echo "✅ Deployment test successful — container is running properly!"
           else
-            echo "Deployment test failed"
+            echo "❌ Deployment test failed — app did not start correctly."
+            docker logs angular-test
             exit 1
           fi
 
-      - name: Stop Angular container
+      - name: Cleanup test container
+        if: always()
         run: |
-          docker stop angular-test || true
-          docker rm angular-test || true
+          echo "🧹 Cleaning up test container..."
+          docker rm -f angular-test || true
